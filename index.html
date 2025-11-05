@@ -433,6 +433,10 @@
           .eq('client_id', client.id)
           .order('day', { ascending: true });
 
+        if (recordsError) {
+          console.warn(`Records for client ${client.id} failed to load:`, recordsError);
+        }
+
         loadedClients.push({
           id: client.id,
           name: client.name,
@@ -685,7 +689,7 @@
 
       const { error } = await query;
       if (error) {
-        console.error('Save error:', error);
+        console.error('Save trade error:', error);
         return showMessage("❌ Failed to save trade", "error");
       }
 
