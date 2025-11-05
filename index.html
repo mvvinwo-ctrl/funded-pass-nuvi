@@ -361,11 +361,11 @@
 
   <script>
     // ==============================
-    // 🔌 SUPABASE SETUP
+    // 🔌 SUPABASE SETUP (NO TRAILING SPACES!)
     // ==============================
     const supabase = supabase.createClient(
-      'https://atidhrwcxwdbkflswczg.supabase.co',        // ← Replace with your Supabase Project URL
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF0aWRocndjeHdkYmtmbHN3Y3pnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNjI0MzUsImV4cCI6MjA3NzkzODQzNX0.86VbmBvTGNvg6dnb-hJ0J--StOMtkJziZ6vHaxHull4'    // ← Replace with your anon public key
+      'https://atidhrwcxwdbkflswczg.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF0aWRocndjeHdkYmtmbHN3Y3pnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNjI0MzUsImV4cCI6MjA3NzkzODQzNX0.86VbmBvTGNvg6dnb-hJ0J--StOMtkJziZ6vHaxHull4'
     );
 
     // ==============================
@@ -414,7 +414,7 @@
     // 🌀 LOAD FROM SUPABASE
     // ==============================
     async function loadTeamData() {
-      const {  clients, error: clientsError } = await supabase
+      const { data: clients, error: clientsError } = await supabase
         .from('clients')
         .select('*')
         .order('created_at', { ascending: true });
@@ -427,7 +427,7 @@
 
       const loadedClients = [];
       for (const client of clients) {
-        const {  records, error: recordsError } = await supabase
+        const { data: records, error: recordsError } = await supabase
           .from('records')
           .select('day, profit, balance')
           .eq('client_id', client.id)
@@ -522,7 +522,6 @@
       unlockedClients.add(clientId);
       renderClientList();
 
-      // Build performance table
       let table = `
         <table>
           <thead>
@@ -586,7 +585,7 @@
     }
 
     // ==============================
-    // 📈 LOGIC HELPERS
+    // 📈 HELPERS
     // ==============================
     function getAchievedCount(client) {
       return client.records.filter(record => {
@@ -601,9 +600,8 @@
 
     function getCurrentBalance(client) {
       if (client.records.length === 0) return 10;
-      return Math.max(...client.records.map(r => r.day)) === 30
-        ? client.records.find(r => r.day === 30)?.balance || 0
-        : client.records.reduce((latest, r) => r.day > latest.day ? r : latest, client.records[0]).balance;
+      const lastRecord = client.records.reduce((latest, r) => r.day > latest.day ? r : latest, client.records[0]);
+      return lastRecord.balance;
     }
 
     // ==============================
@@ -654,7 +652,6 @@
       if (!day || day < 1 || day > 30) return showMessage("Select a valid day (1–30)", "error");
       if (isNaN(profit) || profit < 0) return showMessage("Enter a valid profit", "error");
 
-      // Calculate balance
       let balance = 10;
       if (day > 1) {
         const prevRecord = client.records.find(r => r.day === day - 1);
@@ -667,8 +664,7 @@
       }
       balance += profit;
 
-      // Upsert record
-      const {  existing } = await supabase
+      const { data: existing } = await supabase
         .from('records')
         .select('id')
         .eq('client_id', clientId)
@@ -693,7 +689,6 @@
         return showMessage("❌ Failed to save trade", "error");
       }
 
-      // Update local state
       const recordIndex = client.records.findIndex(r => r.day === day);
       if (recordIndex !== -1) {
         client.records[recordIndex] = { day, profit, balance };
@@ -711,7 +706,7 @@
     }
 
     // ==============================
-    // 💬 MESSAGE HELPER
+    // 💬 MESSAGE
     // ==============================
     function showMessage(text, type) {
       const msgDiv = document.getElementById('message');
@@ -724,7 +719,7 @@
     }
 
     // ==============================
-    // 🚀 INITIALIZE
+    // 🚀 INIT
     // ==============================
     loadTeamData();
   </script>
