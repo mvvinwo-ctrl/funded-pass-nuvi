@@ -268,6 +268,22 @@
       font-size: 0.9rem;
     }
 
+    .target-info {
+      font-size: 0.85rem;
+      color: var(--text-light);
+      margin-top: 5px;
+      display: none;
+    }
+
+    .target-info.show {
+      display: block;
+    }
+
+    .target-value {
+      font-weight: bold;
+      color: #F57F17;
+    }
+
     .leaderboard {
       background: var(--card-bg);
       border-radius: 12px;
@@ -574,6 +590,9 @@
             <button onclick="logTradeForClient('${client.id}')" ${isUnlocked ? '' : 'disabled'}>📈 Log</button>
           </div>`;
 
+          // Add target info display
+          tradeForm += `<div class="target-info" id="target-info-${client.id}"></div>`;
+
           const card = document.createElement('div');
           card.className = 'client-card';
           card.innerHTML = `
@@ -593,6 +612,27 @@
             <div class="performance-section" id="perf-${client.id}" style="${isUnlocked ? 'display:block' : 'display:none'}"></div>
           `;
           clientList.appendChild(card);
+
+          // Add event listener for day selection to show target
+          if (isUnlocked) {
+            const daySelect = document.querySelector(`.day-select[data-client="${client.id}"]`);
+            daySelect.addEventListener('change', function() {
+              const selectedDay = parseInt(this.value);
+              if (selectedDay) {
+                const targetInfo = document.getElementById(`target-info-${client.id}`);
+                const target = targets.find(t => t.day === selectedDay);
+                if (target) {
+                  targetInfo.innerHTML = `Target: <span class="target-value">$${target.target.toFixed(2)}</span> | Expected Balance: $${target.expected.toFixed(2)}`;
+                  targetInfo.classList.add('show');
+                } else {
+                  targetInfo.classList.remove('show');
+                }
+              } else {
+                const targetInfo = document.getElementById(`target-info-${client.id}`);
+                targetInfo.classList.remove('show');
+              }
+            });
+          }
         });
       }
 
