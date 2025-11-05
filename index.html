@@ -369,9 +369,10 @@
 
   <script>
     // ==============================
-    // 🔌 SUPABASE SETUP — FIXED URL (NO TRAILING SPACES!)
+    // 🔌 SUPABASE SETUP — FIXED INITIALIZATION
     // ==============================
-    const supabase = supabase.createClient(
+    const { createClient } = supabase;
+    const supabase = createClient(
       'https://atidhrwcxwdbkflswczg.supabase.co',
       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF0aWRocndjeHdkYmtmbHN3Y3pnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNjI0MzUsImV4cCI6MjA3NzkzODQzNX0.86VbmBvTGNvg6dnb-hJ0J--StOMtkJziZ6vHaxHull4'
     );
@@ -450,14 +451,14 @@
     }
 
     // ==============================
-    // ✅ ADD CLIENT — FULL ERROR LOGGING
+    // ✅ ADD CLIENT — FULLY ROBUST
     // ==============================
     async function addClient() {
       const name = document.getElementById('newClientName').value.trim();
       const pin = document.getElementById('newClientPin').value.trim();
 
-      if (!name) return showMessage("⚠️ Enter name", "error");
-      if (!/^\d{4}$/.test(pin)) return showMessage("⚠️ PIN must be 4 digits", "error");
+      if (!name) return showMessage("⚠️ Enter client name", "error");
+      if (!/^\d{4}$/.test(pin)) return showMessage("⚠️ PIN must be exactly 4 digits", "error");
 
       showMessage("⏳ Adding client...", "info");
 
@@ -474,7 +475,7 @@
 
         if (!data || data.length === 0) {
           console.warn('No data returned from insert');
-          return showMessage("❌ No client returned", "error");
+          return showMessage("❌ No client created", "error");
         }
 
         const newClient = data[0];
@@ -489,7 +490,7 @@
         renderLeaderboard();
         document.getElementById('newClientName').value = "";
         document.getElementById('newClientPin').value = "";
-        showMessage(`✅ Client "${name}" added!`, "success");
+        showMessage(`✅ Client "${name}" added successfully!`, "success");
 
       } catch (err) {
         console.error('Unexpected error in addClient:', err);
@@ -547,10 +548,10 @@
     function unlockClient(clientId) {
       const client = teamData.clients.find(c => c.id === clientId);
       const pin = document.getElementById(`pin-${clientId}`).value;
-      if (pin !== client.pin) return showMessage("❌ Wrong PIN", "error");
+      if (pin !== client.pin) return showMessage("❌ Incorrect PIN", "error");
       unlockedClients.add(clientId);
       renderClientList();
-      showMessage("✅ Unlocked!", "success");
+      showMessage("✅ Client unlocked!", "success");
     }
 
     function renderLeaderboard() {
@@ -580,15 +581,15 @@
 
     async function logTradeForClient(clientId) {
       const client = teamData.clients.find(c => c.id === clientId);
-      if (!client || !unlockedClients.has(clientId)) return showMessage("🔒 Unlock first", "error");
+      if (!client || !unlockedClients.has(clientId)) return showMessage("🔒 Unlock client first", "error");
 
       const dayEl = document.querySelector(`.day-select[data-client="${clientId}"]`);
       const profitEl = document.querySelector(`.profit-input[data-client="${clientId}"]`);
       const day = parseInt(dayEl.value);
       const profit = parseFloat(profitEl.value);
 
-      if (!day || day < 1 || day > 30) return showMessage("⚠️ Day must be 1–30", "error");
-      if (isNaN(profit) || profit < 0) return showMessage("⚠️ Enter valid profit", "error");
+      if (!day || day < 1 || day > 30) return showMessage("⚠️ Day must be between 1 and 30", "error");
+      if (isNaN(profit) || profit < 0) return showMessage("⚠️ Enter a valid profit amount", "error");
 
       let balance = 10;
       if (day > 1) {
@@ -620,7 +621,7 @@
 
       renderClientList();
       renderLeaderboard();
-      showMessage(`✅ Day ${day} logged!`, "success");
+      showMessage(`✅ Day ${day} logged successfully!`, "success");
       dayEl.value = "";
       profitEl.value = "";
     }
@@ -639,7 +640,7 @@
       setTimeout(() => el.style.display = 'none', 5000);
     }
 
-    // 🚀 Initialize
+    // 🚀 Initialize app
     loadTeamData();
   </script>
 </body>
