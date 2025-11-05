@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>🚀 Funded Pass Nuvi</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --bg: #F9FAFB;
+      --card-bg: #FFFFFF;
+      --text: #263238;
+      --text-light: #78909C;
+      --accent: #E3F2FD;
+      --success: #C8E6C9;
+      --danger: #FFCDD2;
+      --border: #CFD8DC;
+      --hover: #ECEFF1;
+      --cream: #FFF8E1;
+      --yellow: #F0F4C3;
+      --shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      transition: all 0.2s ease;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      padding: 20px;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 30px;
+      padding: 25px;
+      background: linear-gradient(135deg, #FFFFFF, var(--accent));
+      border-radius: 15px;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      margin-bottom: 10px;
+      color: var(--text);
+      letter-spacing: 1px;
+    }
+
+    .subtitle {
+      font-size: 1.2rem;
+      color: var(--text-light);
+      margin-bottom: 20px;
+    }
+
+    .controls {
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-bottom: 20px;
+      padding: 15px;
+      background: var(--card-bg);
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+    }
+
+    input, select, button {
+      padding: 12px 18px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 1rem;
+      background: #FFFFFF;
+      color: var(--text);
+    }
+
+    input:focus, select:focus {
+      outline: 2px solid var(--accent);
+      box-shadow: 0 0 0 4px rgba(100, 181, 246, 0.1);
+    }
+
+    button {
+      background: var(--accent);
+      color: var(--text);
+      cursor: pointer;
+      font-weight: bold;
+      border: none;
+    }
+
+    button:hover {
+      background: #BBDEFB;
+      transform: translateY(-2px);
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .section-title {
+      font-size: 1.5rem;
+      margin: 30px 0 15px;
+      color: var(--text);
+      border-bottom: 2px solid var(--accent);
+      padding-bottom: 5px;
+    }
+
+    .client-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .client-card {
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .client-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+
+    .client-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .client-name {
+      font-size: 1.3rem;
+      font-weight: bold;
+      color: var(--text);
+    }
+
+    .client-stats {
+      display: flex;
+      justify-content: space-between;
+      margin: 10px 0;
+      font-size: 0.9rem;
+    }
+
+    .stat {
+      text-align: center;
+      padding: 8px;
+      background: var(--accent);
+      border-radius: 6px;
+      font-weight: bold;
+    }
+
+    .achieved-count {
+      color: #2E7D32;
+    }
+
+    .total-profit {
+      color: #F57F17;
+    }
+
+    .trade-form {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin: 15px 0;
+      padding: 10px;
+      background: var(--cream);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+
+    .trade-form input, .trade-form select, .trade-form button {
+      flex: 1;
+      min-width: 100px;
+    }
+
+    .trade-form button {
+      background: var(--yellow);
+      color: var(--text);
+    }
+
+    .trade-form button:hover {
+      background: #E6EE9C;
+    }
+
+    .pin-section {
+      margin: 12px 0;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .performance-section {
+      margin-top: 15px;
+      display: none;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--card-bg);
+      border-radius: 8px;
+      overflow: hidden;
+      margin: 15px 0;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+    }
+
+    th, td {
+      padding: 10px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+
+    th {
+      background: var(--accent);
+      font-weight: bold;
+      color: var(--text);
+      font-size: 0.9rem;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    .checkmark {
+      display: inline-block;
+      width: 22px;
+      height: 22px;
+      background: var(--success);
+      color: #2E7D32;
+      text-align: center;
+      line-height: 22px;
+      border-radius: 50%;
+      font-weight: bold;
+      font-size: 0.9rem;
+    }
+
+    .cross {
+      display: inline-block;
+      width: 22px;
+      height: 22px;
+      background: var(--danger);
+      color: #C62828;
+      text-align: center;
+      line-height: 22px;
+      border-radius: 50%;
+      font-weight: bold;
+      font-size: 0.9rem;
+    }
+
+    .leaderboard {
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+    }
+
+    .leaderboard-item {
+      display: flex;
+      align-items: center;
+      padding: 12px;
+      border-bottom: 1px solid var(--border);
+      transition: background 0.1s;
+    }
+
+    .leaderboard-item:last-child {
+      border-bottom: none;
+    }
+
+    .leaderboard-item:hover {
+      background: var(--hover);
+    }
+
+    .rank {
+      font-weight: bold;
+      color: var(--text);
+      margin-right: 10px;
+      font-size: 1.1rem;
+    }
+
+    .leaderboard-name {
+      flex-grow: 1;
+      font-weight: bold;
+    }
+
+    .leaderboard-score {
+      font-weight: bold;
+      color: #2E7D32;
+    }
+
+    .leaderboard-balance {
+      margin-left: 10px;
+      font-weight: normal;
+      color: var(--text-light);
+    }
+
+    @media (max-width: 768px) {
+      .controls {
+        flex-direction: column;
+      }
+      h1 { font-size: 2.2rem; }
+      .client-card {
+        min-width: 100%;
+      }
+      .trade-form {
+        flex-direction: column;
+      }
+      .pin-section {
+        flex-direction: column;
+        align-items: stretch;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🚀 Funded Pass Nuvi</h1>
+      <p class="subtitle">Track daily progress. Unlock performance. Achieve consistency.</p>
+    </header>
+
+    <div class="controls">
+      <input type="text" id="newClientName" placeholder="New Client Name" />
+      <input type="password" id="newClientPin" placeholder="Set 4-digit PIN" maxlength="4" />
+      <button onclick="addClient()">➕ Add Client</button>
+    </div>
+
+    <div id="message" style="margin: 10px 0; padding: 10px; border-radius: 6px; display: none;"></div>
+
+    <div class="section-title">👥 All Team Members</div>
+    <div class="client-list" id="clientList">
+      <!-- Filled by JS -->
+    </div>
+
+    <div class="section-title">🏆 Top Performers</div>
+    <div class="leaderboard" id="leaderboard">
+      <!-- Filled by JS -->
+    </div>
+  </div>
+
+  <script>
+    // ==============================
+    // 🔌 SUPABASE SETUP
+    // ==============================
+    const supabase = supabase.createClient(
+      'https://atidhrwcxwdbkflswczg.supabase.co',        // ← Replace with your Supabase Project URL
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF0aWRocndjeHdkYmtmbHN3Y3pnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNjI0MzUsImV4cCI6MjA3NzkzODQzNX0.86VbmBvTGNvg6dnb-hJ0J--StOMtkJziZ6vHaxHull4'    // ← Replace with your anon public key
+    );
+
+    // ==============================
+    // 📊 TARGET DATA
+    // ==============================
+    const targets = [
+      { day: 1, target: 2.50, expected: 12.50 },
+      { day: 2, target: 3.13, expected: 15.63 },
+      { day: 3, target: 3.90, expected: 19.53 },
+      { day: 4, target: 4.88, expected: 24.41 },
+      { day: 5, target: 6.10, expected: 30.51 },
+      { day: 6, target: 7.63, expected: 38.14 },
+      { day: 7, target: 9.54, expected: 47.68 },
+      { day: 8, target: 11.92, expected: 59.60 },
+      { day: 9, target: 14.90, expected: 74.50 },
+      { day: 10, target: 18.63, expected: 93.13 },
+      { day: 11, target: 23.28, expected: 116.41 },
+      { day: 12, target: 29.10, expected: 145.57 },
+      { day: 13, target: 36.39, expected: 181.96 },
+      { day: 14, target: 45.49, expected: 227.45 },
+      { day: 15, target: 56.86, expected: 284.31 },
+      { day: 16, target: 71.08, expected: 355.39 },
+      { day: 17, target: 88.85, expected: 444.24 },
+      { day: 18, target: 111.06, expected: 555.30 },
+      { day: 19, target: 138.83, expected: 694.13 },
+      { day: 20, target: 173.53, expected: 867.66 },
+      { day: 21, target: 216.93, expected: 1084.54 },
+      { day: 22, target: 271.15, expected: 1355.73 },
+      { day: 23, target: 338.93, expected: 1694.66 },
+      { day: 24, target: 423.67, expected: 2118.33 },
+      { day: 25, target: 529.58, expected: 2647.91 },
+      { day: 26, target: 661.98, expected: 3309.89 },
+      { day: 27, target: 827.47, expected: 4137.36 },
+      { day: 28, target: 1034.34, expected: 5171.70 },
+      { day: 29, target: 1292.93, expected: 6464.63 },
+      { day: 30, target: 1616.60, expected: 8080.79 }
+    ];
+
+    // ==============================
+    // 🧠 GLOBAL STATE
+    // ==============================
+    let teamData = { clients: [] };
+    const unlockedClients = new Set();
+
+    // ==============================
+    // 🌀 LOAD FROM SUPABASE
+    // ==============================
+    async function loadTeamData() {
+      const {  clients, error: clientsError } = await supabase
+        .from('clients')
+        .select('*')
+        .order('created_at', { ascending: true });
+
+      if (clientsError) {
+        console.error('Error loading clients:', clientsError);
+        showMessage("⚠️ Could not load team data", "error");
+        return;
+      }
+
+      const loadedClients = [];
+      for (const client of clients) {
+        const {  records, error: recordsError } = await supabase
+          .from('records')
+          .select('day, profit, balance')
+          .eq('client_id', client.id)
+          .order('day', { ascending: true });
+
+        loadedClients.push({
+          id: client.id,
+          name: client.name,
+          pin: client.pin,
+          records: records || []
+        });
+      }
+
+      teamData = { clients: loadedClients };
+      renderClientList();
+      renderLeaderboard();
+    }
+
+    // ==============================
+    // 👤 RENDER CLIENT LIST
+    // ==============================
+    function renderClientList() {
+      const clientList = document.getElementById('clientList');
+      clientList.innerHTML = '';
+
+      teamData.clients.forEach(client => {
+        const isUnlocked = unlockedClients.has(client.id);
+        const achievedCount = getAchievedCount(client);
+        const totalProfit = getTotalProfit(client);
+        const currentBalance = getCurrentBalance(client);
+
+        let tradeForm = `
+          <div class="trade-form">
+            <select class="day-select" data-client="${client.id}" ${isUnlocked ? '' : 'disabled'}>
+              <option value="">Select Day</option>
+        `;
+        targets.forEach(t => {
+          tradeForm += `<option value="${t.day}">Day ${t.day}</option>`;
+        });
+        tradeForm += `
+            </select>
+            <input type="number" step="0.01" placeholder="Profit ($)" class="profit-input" data-client="${client.id}" ${isUnlocked ? '' : 'disabled'} />
+            <button onclick="logTradeForClient('${client.id}')" ${isUnlocked ? '' : 'disabled'}>📈 Log Trade</button>
+          </div>
+        `;
+
+        const card = document.createElement('div');
+        card.className = 'client-card';
+        card.id = `client-${client.id}`;
+        card.innerHTML = `
+          <div class="client-header">
+            <span class="client-name">${client.name}</span>
+            <span class="stat achieved-count">${achievedCount} / 30</span>
+          </div>
+          <div class="client-stats">
+            <div class="stat">
+              <div>Total Profit</div>
+              <div class="total-profit">$${totalProfit.toFixed(2)}</div>
+            </div>
+            <div class="stat">
+              <div>Current Balance</div>
+              <div>$${currentBalance.toFixed(2)}</div>
+            </div>
+          </div>
+          ${tradeForm}
+          <div class="pin-section">
+            <input type="password" id="pin-${client.id}" placeholder="Enter 4-digit PIN to unlock actions" maxlength="4" />
+            <button onclick="unlockClient('${client.id}')">🔓 Unlock</button>
+          </div>
+          <div class="performance-section" id="perf-${client.id}" style="${isUnlocked ? 'display:block' : 'display:none'}">
+            <!-- Performance table shown after unlock -->
+          </div>
+        `;
+
+        clientList.appendChild(card);
+      });
+    }
+
+    // ==============================
+    // 🔓 UNLOCK CLIENT
+    // ==============================
+    function unlockClient(clientId) {
+      const client = teamData.clients.find(c => c.id === clientId);
+      if (!client) return;
+
+      const pinInput = document.getElementById(`pin-${clientId}`).value;
+      if (pinInput !== client.pin) {
+        showMessage("❌ Incorrect PIN!", "error");
+        return;
+      }
+
+      unlockedClients.add(clientId);
+      renderClientList();
+
+      // Build performance table
+      let table = `
+        <table>
+          <thead>
+            <tr>
+              <th>Day</th>
+              <th>Balance</th>
+              <th>Target</th>
+              <th>Expected</th>
+              <th>Achieved?</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+      targets.forEach(target => {
+        const record = client.records.find(r => r.day === target.day);
+        const balance = record ? record.balance : (target.day === 1 ? 10 : 0);
+        const achieved = record && record.profit >= target.target;
+        const achievedCell = achieved 
+          ? '<span class="checkmark">✔️</span>' 
+          : '<span class="cross">❌</span>';
+
+        table += `
+          <tr>
+            <td>${target.day}</td>
+            <td>$${balance.toFixed(2)}</td>
+            <td>$${target.target.toFixed(2)}</td>
+            <td>$${target.expected.toFixed(2)}</td>
+            <td>${achievedCell}</td>
+          </tr>
+        `;
+      });
+      table += `</tbody></table>`;
+
+      document.getElementById(`perf-${clientId}`).innerHTML = table;
+      document.getElementById(`perf-${clientId}`).style.display = "block";
+      showMessage("✅ Actions unlocked for this session!", "success");
+    }
+
+    // ==============================
+    // 🏆 RENDER LEADERBOARD
+    // ==============================
+    function renderLeaderboard() {
+      const leaderboard = document.getElementById('leaderboard');
+      leaderboard.innerHTML = '';
+
+      const sortedClients = [...teamData.clients].sort((a, b) => getAchievedCount(b) - getAchievedCount(a));
+
+      sortedClients.forEach((client, index) => {
+        const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '';
+        const balance = getCurrentBalance(client);
+        const item = document.createElement('div');
+        item.className = 'leaderboard-item';
+        item.innerHTML = `
+          <span class="rank">${medal}${index + 1}</span>
+          <span class="leaderboard-name">${client.name}</span>
+          <span class="leaderboard-score">${getAchievedCount(client)} days</span>
+          <span class="leaderboard-balance">Balance: $${balance.toFixed(2)}</span>
+        `;
+        leaderboard.appendChild(item);
+      });
+    }
+
+    // ==============================
+    // 📈 LOGIC HELPERS
+    // ==============================
+    function getAchievedCount(client) {
+      return client.records.filter(record => {
+        const target = targets.find(t => t.day === record.day);
+        return target && record.profit >= target.target;
+      }).length;
+    }
+
+    function getTotalProfit(client) {
+      return client.records.reduce((sum, r) => sum + r.profit, 0);
+    }
+
+    function getCurrentBalance(client) {
+      if (client.records.length === 0) return 10;
+      return Math.max(...client.records.map(r => r.day)) === 30
+        ? client.records.find(r => r.day === 30)?.balance || 0
+        : client.records.reduce((latest, r) => r.day > latest.day ? r : latest, client.records[0]).balance;
+    }
+
+    // ==============================
+    // ➕ ADD CLIENT
+    // ==============================
+    async function addClient() {
+      const name = document.getElementById('newClientName').value.trim();
+      const pin = document.getElementById('newClientPin').value.trim();
+
+      if (!name) return showMessage("Please enter a client name", "error");
+      if (!/^\d{4}$/.test(pin)) return showMessage("PIN must be exactly 4 digits", "error");
+
+      const newId = crypto.randomUUID();
+
+      const { error } = await supabase
+        .from('clients')
+        .insert({ id: newId, name, pin });
+
+      if (error) {
+        console.error('Add client error:', error);
+        return showMessage("❌ Failed to add client", "error");
+      }
+
+      teamData.clients.push({ id: newId, name, pin, records: [] });
+      renderClientList();
+      renderLeaderboard();
+
+      document.getElementById('newClientName').value = "";
+      document.getElementById('newClientPin').value = "";
+      showMessage(`✅ Client "${name}" added!`, "success");
+    }
+
+    // ==============================
+    // 📊 LOG TRADE
+    // ==============================
+    async function logTradeForClient(clientId) {
+      const client = teamData.clients.find(c => c.id === clientId);
+      if (!client || !unlockedClients.has(clientId)) {
+        return showMessage("🔒 Please unlock with PIN first.", "error");
+      }
+
+      const daySelect = document.querySelector(`.day-select[data-client="${clientId}"]`);
+      const profitInput = document.querySelector(`.profit-input[data-client="${clientId}"]`);
+
+      const day = parseInt(daySelect.value);
+      const profit = parseFloat(profitInput.value);
+
+      if (!day || day < 1 || day > 30) return showMessage("Select a valid day (1–30)", "error");
+      if (isNaN(profit) || profit < 0) return showMessage("Enter a valid profit", "error");
+
+      // Calculate balance
+      let balance = 10;
+      if (day > 1) {
+        const prevRecord = client.records.find(r => r.day === day - 1);
+        if (prevRecord) {
+          balance = prevRecord.balance;
+        } else {
+          const prevTarget = targets.find(t => t.day === day - 1);
+          if (prevTarget) balance = prevTarget.expected;
+        }
+      }
+      balance += profit;
+
+      // Upsert record
+      const {  existing } = await supabase
+        .from('records')
+        .select('id')
+        .eq('client_id', clientId)
+        .eq('day', day)
+        .single();
+
+      let query;
+      if (existing) {
+        query = supabase
+          .from('records')
+          .update({ profit, balance })
+          .eq('id', existing.id);
+      } else {
+        query = supabase
+          .from('records')
+          .insert({ client_id: clientId, day, profit, balance });
+      }
+
+      const { error } = await query;
+      if (error) {
+        console.error('Save error:', error);
+        return showMessage("❌ Failed to save trade", "error");
+      }
+
+      // Update local state
+      const recordIndex = client.records.findIndex(r => r.day === day);
+      if (recordIndex !== -1) {
+        client.records[recordIndex] = { day, profit, balance };
+      } else {
+        client.records.push({ day, profit, balance });
+        client.records.sort((a, b) => a.day - b.day);
+      }
+
+      renderClientList();
+      renderLeaderboard();
+      showMessage(`✅ Trade logged for ${client.name} on Day ${day}!`, "success");
+
+      daySelect.value = "";
+      profitInput.value = "";
+    }
+
+    // ==============================
+    // 💬 MESSAGE HELPER
+    // ==============================
+    function showMessage(text, type) {
+      const msgDiv = document.getElementById('message');
+      msgDiv.textContent = text;
+      msgDiv.style.display = 'block';
+      msgDiv.style.backgroundColor = type === "success" ? "rgba(200, 230, 201, 0.8)" : "rgba(255, 205, 210, 0.8)";
+      msgDiv.style.color = type === "success" ? "#2E7D32" : "#C62828";
+      msgDiv.style.borderLeft = `4px solid ${type === "success" ? "#2E7D32" : "#C62828"}`;
+      setTimeout(() => msgDiv.style.display = 'none', 3000);
+    }
+
+    // ==============================
+    // 🚀 INITIALIZE
+    // ==============================
+    loadTeamData();
+  </script>
+</body>
+</html>
