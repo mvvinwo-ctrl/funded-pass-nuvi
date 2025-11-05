@@ -405,10 +405,10 @@
     const unlockedClients = new Set();
 
     // ==============================
-    // 🧠 LOAD DATA
+    // 🧠 LOAD DATA — FIXED
     // ==============================
     async function loadTeamData() {
-      const {  clients, error } = await supabase
+      const { data: clients, error } = await supabase
         .from('clients')
         .select('*')
         .order('created_at', { ascending: true });
@@ -421,12 +421,22 @@
 
       const loadedClients = [];
       for (const client of clients) {
-        const {  records } = await supabase
+        const { data: records, error: recordsError } = await supabase
           .from('records')
           .select('day, profit, balance')
           .eq('client_id', client.id)
           .order('day', { ascending: true });
-        loadedClients.push({ id: client.id, name: client.name, pin: client.pin, records: records || [] });
+        
+        if (recordsError) {
+          console.warn(`Failed to load records for client ${client.name}:`, recordsError);
+        }
+
+        loadedClients.push({
+          id: client.id,
+          name: client.name,
+          pin: client.pin,
+          records: records || []
+        });
       }
 
       teamData = { clients: loadedClients };
@@ -435,7 +445,7 @@
     }
 
     // ==============================
-    // ✅ ADD CLIENT — FINAL VERSION
+    // ✅ ADD CLIENT — FIXED & ROBUST
     // ==============================
     async function addClient() {
       const name = document.getElementById('newClientName').value.trim();
@@ -446,16 +456,14 @@
 
       showMessage("⏳ Adding...", "info");
 
-      // 🔥 Critical: Use .select() and check data length
       const { data, error } = await supabase
         .from('clients')
         .insert({ name, pin })
         .select();
 
-      // 🔥 If no row returned → silent failure (common with bad RLS)
       if (error || !data || data.length === 0) {
-        console.error('Insert failed silently', { error, data });
-        return showMessage("❌ Add failed! Check RLS policies.", "error");
+        console.error('Insert failed:', error, data);
+        return showMessage("❌ Add failed! Check Supabase RLS policies.", "error");
       }
 
       // Success
@@ -475,7 +483,7 @@
     }
 
     // ==============================
-    // UI RENDERING (unchanged)
+    // UI RENDERING
     // ==============================
     function renderClientList() {
       const clientList = document.getElementById('clientList');
@@ -534,11 +542,7 @@
       const lb = document.getElementById('leaderboard');
       lb.innerHTML = '';
       const sorted = [...teamData.clients].sort((a, b) => {
-        const get = c => c.records.filter(r => {
-          const t = targets.find(x => x.day === r.day);
-          return t && r.profit >= t.target;
-        }).length;
-        return get(b) - get(a);
+        return getAchieved(b) - getAchieved(a);
       });
       sorted.forEach((c, i) => {
         const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '';
@@ -585,7 +589,7 @@
         .select('id')
         .eq('client_id', clientId)
         .eq('day', day)
-        .single();
+        .maybeSingle(); // safer than .single()
 
       if (existing) {
         await supabase.from('records').update({ profit, balance }).eq('id', existing.id);
@@ -622,6 +626,7 @@
       setTimeout(() => el.style.display = 'none', 4000);
     }
 
+    // 🚀 Initialize
     loadTeamData();
   </script>
 </body>
