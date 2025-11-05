@@ -268,20 +268,49 @@
       font-size: 0.9rem;
     }
 
-    .target-info {
-      font-size: 0.85rem;
-      color: var(--text-light);
-      margin-top: 5px;
-      display: none;
+    .target-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--card-bg);
+      border-radius: 8px;
+      overflow: hidden;
+      margin: 15px 0;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.05);
     }
 
-    .target-info.show {
-      display: block;
+    .target-table th, .target-table td {
+      padding: 8px;
+      text-align: center;
+      border: 1px solid var(--border);
     }
 
-    .target-value {
+    .target-table th {
+      background: var(--accent);
       font-weight: bold;
+      color: var(--text);
+      font-size: 0.9rem;
+    }
+
+    .target-table .day-cell {
+      font-weight: bold;
+      width: 60px;
+    }
+
+    .target-table .balance-cell {
+      color: #2E7D32;
+    }
+
+    .target-table .target-cell {
       color: #F57F17;
+      font-weight: bold;
+    }
+
+    .target-table .expected-cell {
+      color: #1565C0;
+    }
+
+    .target-table .achieved-cell {
+      width: 80px;
     }
 
     .leaderboard {
@@ -353,6 +382,10 @@
       .pin-section {
         flex-direction: column;
         align-items: stretch;
+      }
+      .target-table th, .target-table td {
+        padding: 6px;
+        font-size: 0.8rem;
       }
     }
   </style>
@@ -590,8 +623,45 @@
             <button onclick="logTradeForClient('${client.id}')" ${isUnlocked ? '' : 'disabled'}>📈 Log</button>
           </div>`;
 
-          // Add target info display
-          tradeForm += `<div class="target-info" id="target-info-${client.id}"></div>`;
+          // Create target table HTML
+          let targetTable = '';
+          if (isUnlocked) {
+            targetTable = `
+              <div class="section-title">📅 30-Day Profit Target Plan</div>
+              <table class="target-table">
+                <thead>
+                  <tr>
+                    <th>DAY</th>
+                    <th>BALANCE</th>
+                    <th>PROFIT TARGET</th>
+                    <th>EXPECTED BALANCE</th>
+                    <th>ACHIEVED YES/NO</th>
+                  </tr>
+                </thead>
+                <tbody>
+            `;
+            
+            targets.forEach(target => {
+              const achieved = client.records.some(r => r.day === target.day && r.profit >= target.target);
+              const currentBalance = client.records.find(r => r.day === target.day)?.balance || 
+                                    (target.day === 1 ? 10 : targets.find(t => t.day === target.day - 1)?.expected || 10);
+              
+              targetTable += `
+                <tr>
+                  <td class="day-cell">${target.day}</td>
+                  <td class="balance-cell">$${currentBalance.toFixed(2)}</td>
+                  <td class="target-cell">$${target.target.toFixed(2)}</td>
+                  <td class="expected-cell">$${target.expected.toFixed(2)}</td>
+                  <td class="achieved-cell">${achieved ? '<span class="checkmark">✓</span>' : '<span class="cross">×</span>'}</td>
+                </tr>
+              `;
+            });
+            
+            targetTable += `
+                </tbody>
+              </table>
+            `;
+          }
 
           const card = document.createElement('div');
           card.className = 'client-card';
@@ -609,7 +679,9 @@
               <input type="password" id="pin-${client.id}" placeholder="4-digit PIN" maxlength="4"/>
               <button onclick="unlockClient('${client.id}')">🔓 Unlock</button>
             </div>
-            <div class="performance-section" id="perf-${client.id}" style="${isUnlocked ? 'display:block' : 'display:none'}"></div>
+            <div class="performance-section" id="perf-${client.id}" style="${isUnlocked ? 'display:block' : 'display:none'}">
+              ${targetTable}
+            </div>
           `;
           clientList.appendChild(card);
 
