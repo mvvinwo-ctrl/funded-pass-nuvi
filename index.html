@@ -361,16 +361,13 @@
 
   <script>
     // ==============================
-    // 🔌 SUPABASE SETUP (NO TRAILING SPACES!)
+    // 🔌 SUPABASE SETUP (CLEAN URL + KEY)
     // ==============================
     const supabase = supabase.createClient(
       'https://atidhrwcxwdbkflswczg.supabase.co',
       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF0aWRocndjeHdkYmtmbHN3Y3pnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNjI0MzUsImV4cCI6MjA3NzkzODQzNX0.86VbmBvTGNvg6dnb-hJ0J--StOMtkJziZ6vHaxHull4'
     );
 
-    // ==============================
-    // 📊 TARGET DATA
-    // ==============================
     const targets = [
       { day: 1, target: 2.50, expected: 12.50 },
       { day: 2, target: 3.13, expected: 15.63 },
@@ -404,9 +401,6 @@
       { day: 30, target: 1616.60, expected: 8080.79 }
     ];
 
-    // ==============================
-    // 🧠 GLOBAL STATE
-    // ==============================
     let teamData = { clients: [] };
     const unlockedClients = new Set();
 
@@ -432,10 +426,6 @@
           .select('day, profit, balance')
           .eq('client_id', client.id)
           .order('day', { ascending: true });
-
-        if (recordsError) {
-          console.warn(`Records for client ${client.id} failed to load:`, recordsError);
-        }
 
         loadedClients.push({
           id: client.id,
@@ -609,7 +599,7 @@
     }
 
     // ==============================
-    // ➕ ADD CLIENT
+    // ➕ ADD CLIENT (FIXED: NO MANUAL ID)
     // ==============================
     async function addClient() {
       const name = document.getElementById('newClientName').value.trim();
@@ -618,18 +608,26 @@
       if (!name) return showMessage("Please enter a client name", "error");
       if (!/^\d{4}$/.test(pin)) return showMessage("PIN must be exactly 4 digits", "error");
 
-      const newId = crypto.randomUUID();
-
-      const { error } = await supabase
+      // ✅ Let Supabase generate the 'id' automatically
+      const { data, error } = await supabase
         .from('clients')
-        .insert({ id: newId, name, pin });
+        .insert({ name, pin })
+        .select(); // Get back the full row including auto-generated id
 
       if (error) {
         console.error('Add client error:', error);
-        return showMessage("❌ Failed to add client", "error");
+        return showMessage(`❌ Failed to add client: ${error.message || 'Unknown error'}`, "error");
       }
 
-      teamData.clients.push({ id: newId, name, pin, records: [] });
+      // ✅ Push the full client object (with Supabase-generated id)
+      const newClient = data[0];
+      teamData.clients.push({
+        id: newClient.id,
+        name: newClient.name,
+        pin: newClient.pin,
+        records: []
+      });
+
       renderClientList();
       renderLeaderboard();
 
@@ -690,7 +688,7 @@
       const { error } = await query;
       if (error) {
         console.error('Save trade error:', error);
-        return showMessage("❌ Failed to save trade", "error");
+        return showMessage("❌ Failed to save trade: " + (error.message || ""), "error");
       }
 
       const recordIndex = client.records.findIndex(r => r.day === day);
@@ -719,7 +717,7 @@
       msgDiv.style.backgroundColor = type === "success" ? "rgba(200, 230, 201, 0.8)" : "rgba(255, 205, 210, 0.8)";
       msgDiv.style.color = type === "success" ? "#2E7D32" : "#C62828";
       msgDiv.style.borderLeft = `4px solid ${type === "success" ? "#2E7D32" : "#C62828"}`;
-      setTimeout(() => msgDiv.style.display = 'none', 3000);
+      setTimeout(() => msgDiv.style.display = 'none', 4000);
     }
 
     // ==============================
