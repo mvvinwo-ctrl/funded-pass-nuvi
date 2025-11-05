@@ -361,7 +361,7 @@
 
   <script>
     // ==============================
-    // 🔌 SUPABASE SETUP (NO TRAILING SPACES!)
+    // 🔌 SUPABASE SETUP
     // ==============================
     const supabase = supabase.createClient(
       'https://atidhrwcxwdbkflswczg.supabase.co',
@@ -408,31 +408,25 @@
     // 🧠 LOAD DATA
     // ==============================
     async function loadTeamData() {
-      const { data: clients, error } = await supabase
+      const {  clients, error } = await supabase
         .from('clients')
         .select('*')
         .order('created_at', { ascending: true });
 
       if (error) {
-        console.error('Load clients error:', error);
-        showMessage(`⚠️ Load failed: ${error.message}`, 'error');
+        console.error('Load error:', error);
+        showMessage(`⚠️ Load failed`, 'error');
         return;
       }
 
       const loadedClients = [];
       for (const client of clients) {
-        const { data: records } = await supabase
+        const {  records } = await supabase
           .from('records')
           .select('day, profit, balance')
           .eq('client_id', client.id)
           .order('day', { ascending: true });
-
-        loadedClients.push({
-          id: client.id,
-          name: client.name,
-          pin: client.pin,
-          records: records || []
-        });
+        loadedClients.push({ id: client.id, name: client.name, pin: client.pin, records: records || [] });
       }
 
       teamData = { clients: loadedClients };
@@ -441,25 +435,27 @@
     }
 
     // ==============================
-    // ➕ ADD CLIENT (WORKING VERSION)
+    // ✅ ADD CLIENT — FINAL VERSION
     // ==============================
     async function addClient() {
       const name = document.getElementById('newClientName').value.trim();
       const pin = document.getElementById('newClientPin').value.trim();
 
-      if (!name) return showMessage("⚠️ Enter a name", "error");
+      if (!name) return showMessage("⚠️ Enter name", "error");
       if (!/^\d{4}$/.test(pin)) return showMessage("⚠️ PIN = 4 digits", "error");
 
       showMessage("⏳ Adding...", "info");
 
+      // 🔥 Critical: Use .select() and check data length
       const { data, error } = await supabase
         .from('clients')
         .insert({ name, pin })
         .select();
 
-      if (error) {
-        console.error('Insert error:', error);
-        return showMessage(`❌ Error: ${error.message || 'Unknown'}`, "error");
+      // 🔥 If no row returned → silent failure (common with bad RLS)
+      if (error || !data || data.length === 0) {
+        console.error('Insert failed silently', { error, data });
+        return showMessage("❌ Add failed! Check RLS policies.", "error");
       }
 
       // Success
@@ -473,14 +469,13 @@
 
       renderClientList();
       renderLeaderboard();
-
       document.getElementById('newClientName').value = "";
       document.getElementById('newClientPin').value = "";
       showMessage(`✅ "${name}" added!`, "success");
     }
 
     // ==============================
-    // 👤 Render UI (no changes needed)
+    // UI RENDERING (unchanged)
     // ==============================
     function renderClientList() {
       const clientList = document.getElementById('clientList');
@@ -566,21 +561,16 @@
       }).length;
     }
 
-    function getTotalProfit(client) {
-      return client.records.reduce((sum, r) => sum + r.profit, 0);
-    }
-
-    function getCurrentBalance(client) {
-      return client.records.length ? client.records[client.records.length - 1].balance : 10;
-    }
-
     async function logTradeForClient(clientId) {
       const client = teamData.clients.find(c => c.id === clientId);
       if (!client || !unlockedClients.has(clientId)) return showMessage("🔒 Unlock first", "error");
 
-      const day = parseInt(document.querySelector(`.day-select[data-client="${clientId}"]`).value);
-      const profit = parseFloat(document.querySelector(`.profit-input[data-client="${clientId}"]`).value);
-      if (!day || day < 1 || day > 30) return showMessage("⚠️ Valid day (1-30)", "error");
+      const dayEl = document.querySelector(`.day-select[data-client="${clientId}"]`);
+      const profitEl = document.querySelector(`.profit-input[data-client="${clientId}"]`);
+      const day = parseInt(dayEl.value);
+      const profit = parseFloat(profitEl.value);
+
+      if (!day || day < 1 || day > 30) return showMessage("⚠️ Day 1-30", "error");
       if (isNaN(profit) || profit < 0) return showMessage("⚠️ Valid profit", "error");
 
       let balance = 10;
@@ -603,7 +593,6 @@
         await supabase.from('records').insert({ client_id: clientId, day, profit, balance });
       }
 
-      // Update local state
       const idx = client.records.findIndex(r => r.day === day);
       if (idx !== -1) {
         client.records[idx] = { day, profit, balance };
@@ -615,8 +604,8 @@
       renderClientList();
       renderLeaderboard();
       showMessage(`✅ Day ${day} logged!`, "success");
-      document.querySelector(`.day-select[data-client="${clientId}"]`).value = "";
-      document.querySelector(`.profit-input[data-client="${clientId}"]`).value = "";
+      dayEl.value = "";
+      profitEl.value = "";
     }
 
     function showMessage(text, type) {
@@ -633,7 +622,6 @@
       setTimeout(() => el.style.display = 'none', 4000);
     }
 
-    // 🚀 START
     loadTeamData();
   </script>
 </body>
