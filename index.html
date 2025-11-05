@@ -385,6 +385,7 @@
       // Expose functions globally for inline onclick
       window.supabaseClient = supabase;
 
+      // Updated targets based on your portal day parts
       const targets = [
         { day: 1, target: 2.50, expected: 12.50 },
         { day: 2, target: 3.13, expected: 15.63 },
@@ -435,7 +436,7 @@
 
           const loadedClients = [];
           for (const client of clients) {
-            const {  records } = await supabase
+            const { data: records } = await supabase
               .from('records')
               .select('day, profit, balance')
               .eq('client_id', client.id)
@@ -523,7 +524,7 @@
         }
         balance += profit;
 
-        const {  existing } = await supabase
+        const { data: existing } = await supabase
           .from('records')
           .select('id')
           .eq('client_id', clientId)
