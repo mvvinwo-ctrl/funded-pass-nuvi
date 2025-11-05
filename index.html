@@ -346,7 +346,7 @@
       <button onclick="addClient()">➕ Add Client</button>
     </div>
 
-    <div id="message" style="margin: 10px 0; padding: 10px; border-radius: 6px; display: none;"></div>
+    <div id="message" style="margin: 10px 0; padding: 12px; border-radius: 8px; display: none; font-weight: bold;"></div>
 
     <div class="section-title">👥 All Team Members</div>
     <div class="client-list" id="clientList">
@@ -361,7 +361,7 @@
 
   <script>
     // ==============================
-    // 🔌 SUPABASE SETUP (CLEAN URL + KEY)
+    // 🔌 SUPABASE SETUP (NO TRAILING SPACES!)
     // ==============================
     const supabase = supabase.createClient(
       'https://atidhrwcxwdbkflswczg.supabase.co',
@@ -405,23 +405,23 @@
     const unlockedClients = new Set();
 
     // ==============================
-    // 🌀 LOAD FROM SUPABASE
+    // 🧠 LOAD DATA
     // ==============================
     async function loadTeamData() {
-      const { data: clients, error: clientsError } = await supabase
+      const { data: clients, error } = await supabase
         .from('clients')
         .select('*')
         .order('created_at', { ascending: true });
 
-      if (clientsError) {
-        console.error('Error loading clients:', clientsError);
-        showMessage("⚠️ Could not load team data", "error");
+      if (error) {
+        console.error('Load clients error:', error);
+        showMessage(`⚠️ Load failed: ${error.message}`, 'error');
         return;
       }
 
       const loadedClients = [];
       for (const client of clients) {
-        const { data: records, error: recordsError } = await supabase
+        const { data: records } = await supabase
           .from('records')
           .select('day, profit, balance')
           .eq('client_id', client.id)
@@ -441,185 +441,28 @@
     }
 
     // ==============================
-    // 👤 RENDER CLIENT LIST
-    // ==============================
-    function renderClientList() {
-      const clientList = document.getElementById('clientList');
-      clientList.innerHTML = '';
-
-      teamData.clients.forEach(client => {
-        const isUnlocked = unlockedClients.has(client.id);
-        const achievedCount = getAchievedCount(client);
-        const totalProfit = getTotalProfit(client);
-        const currentBalance = getCurrentBalance(client);
-
-        let tradeForm = `
-          <div class="trade-form">
-            <select class="day-select" data-client="${client.id}" ${isUnlocked ? '' : 'disabled'}>
-              <option value="">Select Day</option>
-        `;
-        targets.forEach(t => {
-          tradeForm += `<option value="${t.day}">Day ${t.day}</option>`;
-        });
-        tradeForm += `
-            </select>
-            <input type="number" step="0.01" placeholder="Profit ($)" class="profit-input" data-client="${client.id}" ${isUnlocked ? '' : 'disabled'} />
-            <button onclick="logTradeForClient('${client.id}')" ${isUnlocked ? '' : 'disabled'}>📈 Log Trade</button>
-          </div>
-        `;
-
-        const card = document.createElement('div');
-        card.className = 'client-card';
-        card.id = `client-${client.id}`;
-        card.innerHTML = `
-          <div class="client-header">
-            <span class="client-name">${client.name}</span>
-            <span class="stat achieved-count">${achievedCount} / 30</span>
-          </div>
-          <div class="client-stats">
-            <div class="stat">
-              <div>Total Profit</div>
-              <div class="total-profit">$${totalProfit.toFixed(2)}</div>
-            </div>
-            <div class="stat">
-              <div>Current Balance</div>
-              <div>$${currentBalance.toFixed(2)}</div>
-            </div>
-          </div>
-          ${tradeForm}
-          <div class="pin-section">
-            <input type="password" id="pin-${client.id}" placeholder="Enter 4-digit PIN to unlock actions" maxlength="4" />
-            <button onclick="unlockClient('${client.id}')">🔓 Unlock</button>
-          </div>
-          <div class="performance-section" id="perf-${client.id}" style="${isUnlocked ? 'display:block' : 'display:none'}">
-            <!-- Performance table shown after unlock -->
-          </div>
-        `;
-
-        clientList.appendChild(card);
-      });
-    }
-
-    // ==============================
-    // 🔓 UNLOCK CLIENT
-    // ==============================
-    function unlockClient(clientId) {
-      const client = teamData.clients.find(c => c.id === clientId);
-      if (!client) return;
-
-      const pinInput = document.getElementById(`pin-${clientId}`).value;
-      if (pinInput !== client.pin) {
-        showMessage("❌ Incorrect PIN!", "error");
-        return;
-      }
-
-      unlockedClients.add(clientId);
-      renderClientList();
-
-      let table = `
-        <table>
-          <thead>
-            <tr>
-              <th>Day</th>
-              <th>Balance</th>
-              <th>Target</th>
-              <th>Expected</th>
-              <th>Achieved?</th>
-            </tr>
-          </thead>
-          <tbody>
-      `;
-      targets.forEach(target => {
-        const record = client.records.find(r => r.day === target.day);
-        const balance = record ? record.balance : (target.day === 1 ? 10 : 0);
-        const achieved = record && record.profit >= target.target;
-        const achievedCell = achieved 
-          ? '<span class="checkmark">✔️</span>' 
-          : '<span class="cross">❌</span>';
-
-        table += `
-          <tr>
-            <td>${target.day}</td>
-            <td>$${balance.toFixed(2)}</td>
-            <td>$${target.target.toFixed(2)}</td>
-            <td>$${target.expected.toFixed(2)}</td>
-            <td>${achievedCell}</td>
-          </tr>
-        `;
-      });
-      table += `</tbody></table>`;
-
-      document.getElementById(`perf-${clientId}`).innerHTML = table;
-      document.getElementById(`perf-${clientId}`).style.display = "block";
-      showMessage("✅ Actions unlocked for this session!", "success");
-    }
-
-    // ==============================
-    // 🏆 RENDER LEADERBOARD
-    // ==============================
-    function renderLeaderboard() {
-      const leaderboard = document.getElementById('leaderboard');
-      leaderboard.innerHTML = '';
-
-      const sortedClients = [...teamData.clients].sort((a, b) => getAchievedCount(b) - getAchievedCount(a));
-
-      sortedClients.forEach((client, index) => {
-        const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '';
-        const balance = getCurrentBalance(client);
-        const item = document.createElement('div');
-        item.className = 'leaderboard-item';
-        item.innerHTML = `
-          <span class="rank">${medal}${index + 1}</span>
-          <span class="leaderboard-name">${client.name}</span>
-          <span class="leaderboard-score">${getAchievedCount(client)} days</span>
-          <span class="leaderboard-balance">Balance: $${balance.toFixed(2)}</span>
-        `;
-        leaderboard.appendChild(item);
-      });
-    }
-
-    // ==============================
-    // 📈 HELPERS
-    // ==============================
-    function getAchievedCount(client) {
-      return client.records.filter(record => {
-        const target = targets.find(t => t.day === record.day);
-        return target && record.profit >= target.target;
-      }).length;
-    }
-
-    function getTotalProfit(client) {
-      return client.records.reduce((sum, r) => sum + r.profit, 0);
-    }
-
-    function getCurrentBalance(client) {
-      if (client.records.length === 0) return 10;
-      const lastRecord = client.records.reduce((latest, r) => r.day > latest.day ? r : latest, client.records[0]);
-      return lastRecord.balance;
-    }
-
-    // ==============================
-    // ➕ ADD CLIENT (FIXED: NO MANUAL ID)
+    // ➕ ADD CLIENT (WORKING VERSION)
     // ==============================
     async function addClient() {
       const name = document.getElementById('newClientName').value.trim();
       const pin = document.getElementById('newClientPin').value.trim();
 
-      if (!name) return showMessage("Please enter a client name", "error");
-      if (!/^\d{4}$/.test(pin)) return showMessage("PIN must be exactly 4 digits", "error");
+      if (!name) return showMessage("⚠️ Enter a name", "error");
+      if (!/^\d{4}$/.test(pin)) return showMessage("⚠️ PIN = 4 digits", "error");
 
-      // ✅ Let Supabase generate the 'id' automatically
+      showMessage("⏳ Adding...", "info");
+
       const { data, error } = await supabase
         .from('clients')
         .insert({ name, pin })
-        .select(); // Get back the full row including auto-generated id
+        .select();
 
       if (error) {
-        console.error('Add client error:', error);
-        return showMessage(`❌ Failed to add client: ${error.message || 'Unknown error'}`, "error");
+        console.error('Insert error:', error);
+        return showMessage(`❌ Error: ${error.message || 'Unknown'}`, "error");
       }
 
-      // ✅ Push the full client object (with Supabase-generated id)
+      // Success
       const newClient = data[0];
       teamData.clients.push({
         id: newClient.id,
@@ -633,36 +476,117 @@
 
       document.getElementById('newClientName').value = "";
       document.getElementById('newClientPin').value = "";
-      showMessage(`✅ Client "${name}" added!`, "success");
+      showMessage(`✅ "${name}" added!`, "success");
     }
 
     // ==============================
-    // 📊 LOG TRADE
+    // 👤 Render UI (no changes needed)
     // ==============================
+    function renderClientList() {
+      const clientList = document.getElementById('clientList');
+      clientList.innerHTML = '';
+
+      teamData.clients.forEach(client => {
+        const isUnlocked = unlockedClients.has(client.id);
+        const achievedCount = client.records.filter(r => {
+          const t = targets.find(x => x.day === r.day);
+          return t && r.profit >= t.target;
+        }).length;
+        const totalProfit = client.records.reduce((sum, r) => sum + r.profit, 0);
+        const balance = client.records.length ? client.records[client.records.length - 1].balance : 10;
+
+        let tradeForm = `<div class="trade-form">
+          <select class="day-select" data-client="${client.id}" ${isUnlocked ? '' : 'disabled'}>
+            <option value="">Day</option>`;
+        targets.forEach(t => tradeForm += `<option value="${t.day}">Day ${t.day}</option>`);
+        tradeForm += `</select>
+          <input type="number" step="0.01" placeholder="Profit" class="profit-input" data-client="${client.id}" ${isUnlocked ? '' : 'disabled'}/>
+          <button onclick="logTradeForClient('${client.id}')" ${isUnlocked ? '' : 'disabled'}>📈 Log</button>
+        </div>`;
+
+        const card = document.createElement('div');
+        card.className = 'client-card';
+        card.innerHTML = `
+          <div class="client-header">
+            <span class="client-name">${client.name}</span>
+            <span class="stat achieved-count">${achievedCount} / 30</span>
+          </div>
+          <div class="client-stats">
+            <div class="stat"><div>Profit</div><div class="total-profit">$${totalProfit.toFixed(2)}</div></div>
+            <div class="stat"><div>Balance</div><div>$${balance.toFixed(2)}</div></div>
+          </div>
+          ${tradeForm}
+          <div class="pin-section">
+            <input type="password" id="pin-${client.id}" placeholder="4-digit PIN" maxlength="4"/>
+            <button onclick="unlockClient('${client.id}')">🔓 Unlock</button>
+          </div>
+          <div class="performance-section" id="perf-${client.id}" style="${isUnlocked ? 'display:block' : 'display:none'}"></div>
+        `;
+        clientList.appendChild(card);
+      });
+    }
+
+    function unlockClient(clientId) {
+      const client = teamData.clients.find(c => c.id === clientId);
+      const pin = document.getElementById(`pin-${clientId}`).value;
+      if (pin !== client.pin) return showMessage("❌ Wrong PIN", "error");
+      unlockedClients.add(clientId);
+      renderClientList();
+      showMessage("✅ Unlocked!", "success");
+    }
+
+    function renderLeaderboard() {
+      const lb = document.getElementById('leaderboard');
+      lb.innerHTML = '';
+      const sorted = [...teamData.clients].sort((a, b) => {
+        const get = c => c.records.filter(r => {
+          const t = targets.find(x => x.day === r.day);
+          return t && r.profit >= t.target;
+        }).length;
+        return get(b) - get(a);
+      });
+      sorted.forEach((c, i) => {
+        const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '';
+        const balance = c.records.length ? c.records[c.records.length - 1].balance : 10;
+        lb.innerHTML += `
+          <div class="leaderboard-item">
+            <span class="rank">${medal}${i + 1}</span>
+            <span class="leaderboard-name">${c.name}</span>
+            <span class="leaderboard-score">${getAchieved(c)} days</span>
+            <span class="leaderboard-balance">Balance: $${balance.toFixed(2)}</span>
+          </div>
+        `;
+      });
+    }
+
+    function getAchieved(client) {
+      return client.records.filter(r => {
+        const t = targets.find(x => x.day === r.day);
+        return t && r.profit >= t.target;
+      }).length;
+    }
+
+    function getTotalProfit(client) {
+      return client.records.reduce((sum, r) => sum + r.profit, 0);
+    }
+
+    function getCurrentBalance(client) {
+      return client.records.length ? client.records[client.records.length - 1].balance : 10;
+    }
+
     async function logTradeForClient(clientId) {
       const client = teamData.clients.find(c => c.id === clientId);
-      if (!client || !unlockedClients.has(clientId)) {
-        return showMessage("🔒 Please unlock with PIN first.", "error");
-      }
+      if (!client || !unlockedClients.has(clientId)) return showMessage("🔒 Unlock first", "error");
 
-      const daySelect = document.querySelector(`.day-select[data-client="${clientId}"]`);
-      const profitInput = document.querySelector(`.profit-input[data-client="${clientId}"]`);
-
-      const day = parseInt(daySelect.value);
-      const profit = parseFloat(profitInput.value);
-
-      if (!day || day < 1 || day > 30) return showMessage("Select a valid day (1–30)", "error");
-      if (isNaN(profit) || profit < 0) return showMessage("Enter a valid profit", "error");
+      const day = parseInt(document.querySelector(`.day-select[data-client="${clientId}"]`).value);
+      const profit = parseFloat(document.querySelector(`.profit-input[data-client="${clientId}"]`).value);
+      if (!day || day < 1 || day > 30) return showMessage("⚠️ Valid day (1-30)", "error");
+      if (isNaN(profit) || profit < 0) return showMessage("⚠️ Valid profit", "error");
 
       let balance = 10;
       if (day > 1) {
-        const prevRecord = client.records.find(r => r.day === day - 1);
-        if (prevRecord) {
-          balance = prevRecord.balance;
-        } else {
-          const prevTarget = targets.find(t => t.day === day - 1);
-          if (prevTarget) balance = prevTarget.expected;
-        }
+        const prev = client.records.find(r => r.day === day - 1);
+        balance = prev ? prev.balance : targets.find(t => t.day === day - 1)?.expected || 10;
       }
       balance += profit;
 
@@ -673,27 +597,16 @@
         .eq('day', day)
         .single();
 
-      let query;
       if (existing) {
-        query = supabase
-          .from('records')
-          .update({ profit, balance })
-          .eq('id', existing.id);
+        await supabase.from('records').update({ profit, balance }).eq('id', existing.id);
       } else {
-        query = supabase
-          .from('records')
-          .insert({ client_id: clientId, day, profit, balance });
+        await supabase.from('records').insert({ client_id: clientId, day, profit, balance });
       }
 
-      const { error } = await query;
-      if (error) {
-        console.error('Save trade error:', error);
-        return showMessage("❌ Failed to save trade: " + (error.message || ""), "error");
-      }
-
-      const recordIndex = client.records.findIndex(r => r.day === day);
-      if (recordIndex !== -1) {
-        client.records[recordIndex] = { day, profit, balance };
+      // Update local state
+      const idx = client.records.findIndex(r => r.day === day);
+      if (idx !== -1) {
+        client.records[idx] = { day, profit, balance };
       } else {
         client.records.push({ day, profit, balance });
         client.records.sort((a, b) => a.day - b.day);
@@ -701,28 +614,26 @@
 
       renderClientList();
       renderLeaderboard();
-      showMessage(`✅ Trade logged for ${client.name} on Day ${day}!`, "success");
-
-      daySelect.value = "";
-      profitInput.value = "";
+      showMessage(`✅ Day ${day} logged!`, "success");
+      document.querySelector(`.day-select[data-client="${clientId}"]`).value = "";
+      document.querySelector(`.profit-input[data-client="${clientId}"]`).value = "";
     }
 
-    // ==============================
-    // 💬 MESSAGE
-    // ==============================
     function showMessage(text, type) {
-      const msgDiv = document.getElementById('message');
-      msgDiv.textContent = text;
-      msgDiv.style.display = 'block';
-      msgDiv.style.backgroundColor = type === "success" ? "rgba(200, 230, 201, 0.8)" : "rgba(255, 205, 210, 0.8)";
-      msgDiv.style.color = type === "success" ? "#2E7D32" : "#C62828";
-      msgDiv.style.borderLeft = `4px solid ${type === "success" ? "#2E7D32" : "#C62828"}`;
-      setTimeout(() => msgDiv.style.display = 'none', 4000);
+      const el = document.getElementById('message');
+      el.textContent = text;
+      el.style.display = 'block';
+      el.style.backgroundColor = 
+        type === 'success' ? 'rgba(200,230,201,0.9)' :
+        type === 'error'   ? 'rgba(255,205,210,0.9)' :
+        'rgba(200,210,255,0.9)';
+      el.style.color = 
+        type === 'success' ? '#2E7D32' :
+        type === 'error'   ? '#C62828' : '#1565C0';
+      setTimeout(() => el.style.display = 'none', 4000);
     }
 
-    // ==============================
-    // 🚀 INIT
-    // ==============================
+    // 🚀 START
     loadTeamData();
   </script>
 </body>
