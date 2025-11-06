@@ -18,7 +18,6 @@
       --hover: #ECEFF1;
       --cream: #FFF8E1;
       --yellow: #F0F4C3;
-      --gold: #FFF176;
       --shadow: 0 2px 8px rgba(0,0,0,0.05);
     }
 
@@ -314,46 +313,12 @@
       width: 80px;
     }
 
-    .leaderboard, .rule-follower-card {
+    .leaderboard {
       background: var(--card-bg);
       border-radius: 12px;
       padding: 20px;
       box-shadow: var(--shadow);
       border: 1px solid var(--border);
-      margin-bottom: 25px;
-    }
-
-    .rule-follower-card {
-      background: linear-gradient(135deg, var(--gold), #FFECB3);
-      border-color: #FFD54F;
-      text-align: center;
-    }
-
-    .rule-follower-title {
-      font-size: 1.4rem;
-      font-weight: bold;
-      color: #5D4037;
-      margin-bottom: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-    }
-
-    .rule-follower-name {
-      font-size: 1.6rem;
-      font-weight: bold;
-      color: #3E2723;
-      margin: 10px 0;
-    }
-
-    .rule-follower-stats {
-      display: flex;
-      justify-content: center;
-      gap: 25px;
-      margin-top: 10px;
-      font-size: 1.1rem;
-      color: #5D4037;
     }
 
     .leaderboard-item {
@@ -422,10 +387,6 @@
         padding: 6px;
         font-size: 0.8rem;
       }
-      .rule-follower-stats {
-        flex-direction: column;
-        gap: 8px;
-      }
     }
   </style>
 </head>
@@ -447,13 +408,6 @@
     <div class="section-title">👥 All Team Members</div>
     <div class="client-list" id="clientList">
       <!-- Filled by JS -->
-    </div>
-
-    <!-- Best Rule Follower Section -->
-    <div class="section-title">🏅 Best Rule Follower</div>
-    <div class="rule-follower-card" id="ruleFollowerCard">
-      <div class="rule-follower-title">🏅 Best Rule Follower</div>
-      <div id="ruleFollowerContent">No data yet</div>
     </div>
 
     <div class="section-title">🏆 Top Performers (by Balance)</div>
@@ -512,6 +466,7 @@
       let teamData = { clients: [] };
       const unlockedClients = new Set();
 
+      // Helper: compute final balance from records
       function computeFinalBalance(records) {
         let balance = 10;
         const recordMap = {};
@@ -522,16 +477,9 @@
         return balance;
       }
 
-      function getAchievedCount(client) {
-        return client.records.filter(r => {
-          const t = targets.find(x => x.day === r.day);
-          return t && r.profit >= t.target;
-        }).length;
-      }
-
       async function loadTeamData() {
         try {
-          const {  clients, error } = await supabase
+          const { data: clients, error } = await supabase
             .from('clients')
             .select('*')
             .order('created_at', { ascending: true });
@@ -540,7 +488,7 @@
 
           const loadedClients = [];
           for (const client of clients) {
-            const {  records } = await supabase
+            const { data: records } = await supabase
               .from('records')
               .select('day, profit')
               .eq('client_id', client.id)
@@ -557,7 +505,6 @@
           teamData = { clients: loadedClients };
           renderClientList();
           renderLeaderboard();
-          renderBestRuleFollower();
         } catch (err) {
           console.error('Load error:', err);
           showMessage(`⚠️ Load failed: ${err.message}`, "error");
@@ -592,7 +539,6 @@
 
           renderClientList();
           renderLeaderboard();
-          renderBestRuleFollower();
           document.getElementById('newClientName').value = "";
           document.getElementById('newClientPin').value = "";
           showMessage(`✅ "${name}" added!`, "success");
@@ -631,7 +577,8 @@
           client.records.sort((a, b) => a.day - b.day);
         }
 
-        const {  existing } = await supabase
+        // Save to DB
+        const { data: existing } = await supabase
           .from('records')
           .select('id')
           .eq('client_id', clientId)
@@ -646,7 +593,6 @@
 
         renderClientList();
         renderLeaderboard();
-        renderBestRuleFollower();
         showMessage(`✅ Day ${day} logged!`, "success");
         dayEl.value = "";
         profitEl.value = "";
@@ -669,7 +615,11 @@
             dailyBalances[d] = currentBalance;
           }
 
-          const achievedCount = getAchievedCount(client);
+          const achievedCount = client.records.filter(r => {
+            const t = targets.find(x => x.day === r.day);
+            return t && r.profit >= t.target;
+          }).length;
+
           const totalProfit = client.records.reduce((sum, r) => sum + r.profit, 0);
           const cardBalance = dailyBalances[30];
 
@@ -741,64 +691,23 @@
         });
       }
 
-      function renderBestRuleFollower() {
-        const contentEl = document.getElementById('ruleFollowerContent');
-        const clients = teamData.clients;
-
-        if (clients.length === 0) {
-          contentEl.textContent = "No clients yet";
-          return;
-        }
-
-        let best = null;
-        let maxAchieved = -1;
-        let bestBalance = -1;
-
-        clients.forEach(client => {
-          const achieved = getAchievedCount(client);
-          const balance = computeFinalBalance(client.records);
-          // Better if more achieved days, or same days but higher balance
-          if (achieved > maxAchieved || (achieved === maxAchieved && balance > bestBalance)) {
-            maxAchieved = achieved;
-            bestBalance = balance;
-            best = { ...client, achieved, balance };
-          }
-        });
-
-        if (best && best.achieved > 0) {
-          contentEl.innerHTML = `
-            <div class="rule-follower-name">${best.name}</div>
-            <div class="rule-follower-stats">
-              <span>✅ ${best.achieved} / 30 days on target</span>
-              <span>💰 Balance: $${best.balance.toFixed(2)}</span>
-            </div>
-          `;
-        } else {
-          contentEl.innerHTML = "No one has met a target yet";
-        }
-      }
-
       function renderLeaderboard() {
         const lb = document.getElementById('leaderboard');
         lb.innerHTML = '';
 
         const clientsWithBalance = teamData.clients.map(client => {
           const balance = computeFinalBalance(client.records);
-          const achieved = getAchievedCount(client);
+          const achieved = getAchieved(client);
           return { ...client, finalBalance: balance, achieved };
         });
 
+        // 🔥 Sort by balance (desc), then by achieved days (desc)
         clientsWithBalance.sort((a, b) => {
           if (b.finalBalance !== a.finalBalance) {
             return b.finalBalance - a.finalBalance;
           }
           return b.achieved - a.achieved;
         });
-
-        if (clientsWithBalance.length === 0) {
-          lb.innerHTML = '<div style="text-align:center;color:var(--text-light);">No clients</div>';
-          return;
-        }
 
         clientsWithBalance.forEach((c, i) => {
           const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '';
@@ -811,6 +720,13 @@
             </div>
           `;
         });
+      }
+
+      function getAchieved(client) {
+        return client.records.filter(r => {
+          const t = targets.find(x => x.day === r.day);
+          return t && r.profit >= t.target;
+        }).length;
       }
 
       function showMessage(text, type) {
