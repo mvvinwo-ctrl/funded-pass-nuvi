@@ -558,13 +558,18 @@
         if (!day || day < 1 || day > 30) return showMessage("⚠️ Day 1–30", "error");
         if (isNaN(profit) || profit < 0) return showMessage("⚠️ Valid profit", "error");
 
-        let prevBalance = 10;
-        if (day > 1) {
-          const prevRecord = client.records.filter(r => r.day < day).reduce((a, b) => (a.day > b.day ? a : b), null);
-          prevBalance = prevRecord ? prevRecord.balance : 10;
+        // Recompute balance from scratch
+        let newBalance = 10;
+        for (let d = 1; d <= 30; d++) {
+          if (d === day) {
+            newBalance += profit;
+          } else {
+            const existingRecord = client.records.find(r => r.day === d);
+            if (existingRecord) newBalance += existingRecord.profit;
+          }
         }
-        const balance = prevBalance + profit;
 
+        // Save to DB
         const { data: existing } = await supabase
           .from('records')
           .select('id')
@@ -573,16 +578,16 @@
           .maybeSingle();
 
         if (existing) {
-          await supabase.from('records').update({ profit, balance }).eq('id', existing.id);
+          await supabase.from('records').update({ profit, balance: newBalance }).eq('id', existing.id);
         } else {
-          await supabase.from('records').insert({ client_id: clientId, day, profit, balance });
+          await supabase.from('records').insert({ client_id: clientId, day, profit, balance: newBalance });
         }
 
         const idx = client.records.findIndex(r => r.day === day);
         if (idx !== -1) {
-          client.records[idx] = { day, profit, balance };
+          client.records[idx] = { day, profit, balance: newBalance };
         } else {
-          client.records.push({ day, profit, balance });
+          client.records.push({ day, profit, balance: newBalance });
           client.records.sort((a, b) => a.day - b.day);
         }
 
@@ -600,17 +605,17 @@
         teamData.clients.forEach(client => {
           const isUnlocked = unlockedClients.has(client.id);
 
-          // Precompute daily balances based on actual records
+          // 🔧 CORRECTED: Compute balance day-by-day using only profit (not stored balance)
           const recordMap = {};
           client.records.forEach(r => {
             recordMap[r.day] = r;
           });
 
           const dailyBalances = {};
-          let currentBalance = 10;
+          let currentBalance = 10; // starting balance
           for (let d = 1; d <= 30; d++) {
             if (recordMap[d]) {
-              currentBalance = recordMap[d].balance;
+              currentBalance += recordMap[d].profit;
             }
             dailyBalances[d] = currentBalance;
           }
@@ -621,7 +626,7 @@
           }).length;
 
           const totalProfit = client.records.reduce((sum, r) => sum + r.profit, 0);
-          const cardBalance = dailyBalances[30]; // consistent final balance
+          const cardBalance = dailyBalances[30]; // final balance after 30 days
 
           let tradeForm = `<div class="trade-form">
             <select class="day-select" data-client="${client.id}" ${isUnlocked ? '' : 'disabled'}>
@@ -705,11 +710,11 @@
           const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '';
           const recordMap = {};
           c.records.forEach(r => recordMap[r.day] = r);
-          let bal = 10;
+
+          let balance = 10;
           for (let d = 1; d <= 30; d++) {
-            if (recordMap[d]) bal = recordMap[d].balance;
+            if (recordMap[d]) balance += recordMap[d].profit;
           }
-          const balance = bal;
 
           lb.innerHTML += `
             <div class="leaderboard-item">
