@@ -691,54 +691,42 @@
         });
       }
 
-      function getAchieved(client) {
-        return client.records.filter(r => {
-          const t = targets.find(x => x.day === r.day);
-          return t && r.profit >= t.target;
-        }).length;
-      }
-
       function renderLeaderboard() {
         const lb = document.getElementById('leaderboard');
         lb.innerHTML = '';
 
-        const clientsWithMetrics = teamData.clients.map(client => {
+        const clientsWithBalance = teamData.clients.map(client => {
           const balance = computeFinalBalance(client.records);
           const achieved = getAchieved(client);
           return { ...client, finalBalance: balance, achieved };
         });
 
-        // Sort by balance (as before) for leaderboard display order
-        const sortedByBalance = [...clientsWithMetrics].sort((a, b) => {
+        // 🔥 Sort by balance (desc), then by achieved days (desc)
+        clientsWithBalance.sort((a, b) => {
           if (b.finalBalance !== a.finalBalance) {
             return b.finalBalance - a.finalBalance;
           }
           return b.achieved - a.achieved;
         });
 
-        // Find the true "Best Rule Follower": highest achieved days (use balance as tiebreak)
-        const bestRuleFollower = [...clientsWithMetrics].sort((a, b) => {
-          if (b.achieved !== a.achieved) return b.achieved - a.achieved;
-          return b.finalBalance - a.finalBalance; // tiebreaker
-        })[0];
-
-        // Render leaderboard (by balance), but annotate best rule follower
-        sortedByBalance.forEach((c, i) => {
+        clientsWithBalance.forEach((c, i) => {
           const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '';
-          let displayName = c.name;
-          if (bestRuleFollower && c.id === bestRuleFollower.id) {
-            displayName += " (Best Rule Follower)";
-          }
-
           lb.innerHTML += `
             <div class="leaderboard-item">
               <span class="rank">${medal}${i + 1}</span>
-              <span class="leaderboard-name">${displayName}</span>
+              <span class="leaderboard-name">${c.name}</span>
               <span class="leaderboard-score">${c.achieved} days</span>
               <span class="leaderboard-balance">Balance: $${c.finalBalance.toFixed(2)}</span>
             </div>
           `;
         });
+      }
+
+      function getAchieved(client) {
+        return client.records.filter(r => {
+          const t = targets.find(x => x.day === r.day);
+          return t && r.profit >= t.target;
+        }).length;
       }
 
       function showMessage(text, type) {
