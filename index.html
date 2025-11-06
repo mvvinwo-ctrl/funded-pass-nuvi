@@ -417,24 +417,19 @@
   </div>
 
   <script>
-    // 💡 SAFE INITIALIZATION: Wait for Supabase global to load
     (function initApp() {
       if (typeof window.supabase === 'undefined') {
-        // Not loaded yet – try again in 100ms
         return setTimeout(initApp, 100);
       }
 
-      // ✅ Supabase is ready
       const { createClient } = window.supabase;
       const supabase = createClient(
         'https://atidhrwcxwdbkflswczg.supabase.co',
         'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF0aWRocndjeHdkYmtmbHN3Y3pnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNjI0MzUsImV4cCI6MjA3NzkzODQzNX0.86VbmBvTGNvg6dnb-hJ0J--StOMtkJziZ6vHaxHull4'
       );
 
-      // Expose functions globally for inline onclick
       window.supabaseClient = supabase;
 
-      // Updated targets based on your portal day parts
       const targets = [
         { day: 1, target: 2.50, expected: 12.50 },
         { day: 2, target: 3.13, expected: 15.63 },
@@ -471,9 +466,6 @@
       let teamData = { clients: [] };
       const unlockedClients = new Set();
 
-      // ==============================
-      // FUNCTIONS
-      // ==============================
       async function loadTeamData() {
         try {
           const { data: clients, error } = await supabase
@@ -566,12 +558,12 @@
         if (!day || day < 1 || day > 30) return showMessage("⚠️ Day 1–30", "error");
         if (isNaN(profit) || profit < 0) return showMessage("⚠️ Valid profit", "error");
 
-        let balance = 10;
+        let prevBalance = 10;
         if (day > 1) {
-          const prev = client.records.find(r => r.day === day - 1);
-          balance = prev ? prev.balance : (targets.find(t => t.day === day - 1)?.expected || 10);
+          const prevRecord = client.records.filter(r => r.day < day).reduce((a, b) => (a.day > b.day ? a : b), null);
+          prevBalance = prevRecord ? prevRecord.balance : 10;
         }
-        balance += profit;
+        const balance = prevBalance + profit;
 
         const { data: existing } = await supabase
           .from('records')
@@ -607,12 +599,29 @@
 
         teamData.clients.forEach(client => {
           const isUnlocked = unlockedClients.has(client.id);
+
+          // Precompute daily balances based on actual records
+          const recordMap = {};
+          client.records.forEach(r => {
+            recordMap[r.day] = r;
+          });
+
+          const dailyBalances = {};
+          let currentBalance = 10;
+          for (let d = 1; d <= 30; d++) {
+            if (recordMap[d]) {
+              currentBalance = recordMap[d].balance;
+            }
+            dailyBalances[d] = currentBalance;
+          }
+
           const achievedCount = client.records.filter(r => {
             const t = targets.find(x => x.day === r.day);
             return t && r.profit >= t.target;
           }).length;
+
           const totalProfit = client.records.reduce((sum, r) => sum + r.profit, 0);
-          const balance = client.records.length ? client.records[client.records.length - 1].balance : 10;
+          const cardBalance = dailyBalances[30]; // consistent final balance
 
           let tradeForm = `<div class="trade-form">
             <select class="day-select" data-client="${client.id}" ${isUnlocked ? '' : 'disabled'}>
@@ -623,7 +632,6 @@
             <button onclick="logTradeForClient('${client.id}')" ${isUnlocked ? '' : 'disabled'}>📈 Log</button>
           </div>`;
 
-          // Create target table HTML
           let targetTable = '';
           if (isUnlocked) {
             targetTable = `
@@ -640,23 +648,22 @@
                 </thead>
                 <tbody>
             `;
-            
+
             targets.forEach(target => {
               const achieved = client.records.some(r => r.day === target.day && r.profit >= target.target);
-              const currentBalance = client.records.find(r => r.day === target.day)?.balance || 
-                                    (target.day === 1 ? 10 : targets.find(t => t.day === target.day - 1)?.expected || 10);
-              
+              const balanceToShow = dailyBalances[target.day];
+
               targetTable += `
                 <tr>
                   <td class="day-cell">${target.day}</td>
-                  <td class="balance-cell">$${currentBalance.toFixed(2)}</td>
+                  <td class="balance-cell">$${balanceToShow.toFixed(2)}</td>
                   <td class="target-cell">$${target.target.toFixed(2)}</td>
                   <td class="expected-cell">$${target.expected.toFixed(2)}</td>
                   <td class="achieved-cell">${achieved ? '<span class="checkmark">✓</span>' : '<span class="cross">×</span>'}</td>
                 </tr>
               `;
             });
-            
+
             targetTable += `
                 </tbody>
               </table>
@@ -672,7 +679,7 @@
             </div>
             <div class="client-stats">
               <div class="stat"><div>Profit</div><div class="total-profit">$${totalProfit.toFixed(2)}</div></div>
-              <div class="stat"><div>Balance</div><div>$${balance.toFixed(2)}</div></div>
+              <div class="stat"><div>Balance</div><div>$${cardBalance.toFixed(2)}</div></div>
             </div>
             ${tradeForm}
             <div class="pin-section">
@@ -684,27 +691,6 @@
             </div>
           `;
           clientList.appendChild(card);
-
-          // Add event listener for day selection to show target
-          if (isUnlocked) {
-            const daySelect = document.querySelector(`.day-select[data-client="${client.id}"]`);
-            daySelect.addEventListener('change', function() {
-              const selectedDay = parseInt(this.value);
-              if (selectedDay) {
-                const targetInfo = document.getElementById(`target-info-${client.id}`);
-                const target = targets.find(t => t.day === selectedDay);
-                if (target) {
-                  targetInfo.innerHTML = `Target: <span class="target-value">$${target.target.toFixed(2)}</span> | Expected Balance: $${target.expected.toFixed(2)}`;
-                  targetInfo.classList.add('show');
-                } else {
-                  targetInfo.classList.remove('show');
-                }
-              } else {
-                const targetInfo = document.getElementById(`target-info-${client.id}`);
-                targetInfo.classList.remove('show');
-              }
-            });
-          }
         });
       }
 
@@ -714,9 +700,17 @@
         const sorted = [...teamData.clients].sort((a, b) => {
           return getAchieved(b) - getAchieved(a);
         });
+
         sorted.forEach((c, i) => {
           const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '';
-          const balance = c.records.length ? c.records[c.records.length - 1].balance : 10;
+          const recordMap = {};
+          c.records.forEach(r => recordMap[r.day] = r);
+          let bal = 10;
+          for (let d = 1; d <= 30; d++) {
+            if (recordMap[d]) bal = recordMap[d].balance;
+          }
+          const balance = bal;
+
           lb.innerHTML += `
             <div class="leaderboard-item">
               <span class="rank">${medal}${i + 1}</span>
@@ -749,12 +743,10 @@
         setTimeout(() => el.style.display = 'none', 5000);
       }
 
-      // Expose functions to global scope for inline HTML onclick
       window.addClient = addClient;
       window.unlockClient = unlockClient;
       window.logTradeForClient = logTradeForClient;
 
-      // 🚀 Start the app
       loadTeamData();
     })();
   </script>
