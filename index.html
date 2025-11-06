@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>🚀 Funded Pass Nuvi</title>
+  <title>🚀 Funded Pass Nuvi – $10 Start</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     :root {
@@ -356,8 +356,8 @@
 
     .leaderboard-balance {
       margin-left: 10px;
-      font-weight: normal;
-      color: var(--text-light);
+      font-weight: bold;
+      color: #1565C0;
     }
 
     #message {
@@ -393,7 +393,7 @@
 <body>
   <div class="container">
     <header>
-      <h1>🚀 Funded Pass Nuvi</h1>
+      <h1>🚀 Funded Pass Nuvi – $10 Start</h1>
       <p class="subtitle">Track daily progress. Unlock performance. Achieve consistency.</p>
     </header>
 
@@ -410,7 +410,7 @@
       <!-- Filled by JS -->
     </div>
 
-    <div class="section-title">🏆 Top Performers</div>
+    <div class="section-title">🏆 Top Performers (by Balance)</div>
     <div class="leaderboard" id="leaderboard">
       <!-- Filled by JS -->
     </div>
@@ -466,6 +466,17 @@
       let teamData = { clients: [] };
       const unlockedClients = new Set();
 
+      // Helper: compute final balance from records
+      function computeFinalBalance(records) {
+        let balance = 10;
+        const recordMap = {};
+        records.forEach(r => recordMap[r.day] = r);
+        for (let d = 1; d <= 30; d++) {
+          if (recordMap[d]) balance += recordMap[d].profit;
+        }
+        return balance;
+      }
+
       async function loadTeamData() {
         try {
           const { data: clients, error } = await supabase
@@ -479,7 +490,7 @@
           for (const client of clients) {
             const { data: records } = await supabase
               .from('records')
-              .select('day, profit, balance')
+              .select('day, profit')
               .eq('client_id', client.id)
               .order('day', { ascending: true });
 
@@ -558,15 +569,12 @@
         if (!day || day < 1 || day > 30) return showMessage("⚠️ Day 1–30", "error");
         if (isNaN(profit) || profit < 0) return showMessage("⚠️ Valid profit", "error");
 
-        // Recompute balance from scratch
-        let newBalance = 10;
-        for (let d = 1; d <= 30; d++) {
-          if (d === day) {
-            newBalance += profit;
-          } else {
-            const existingRecord = client.records.find(r => r.day === d);
-            if (existingRecord) newBalance += existingRecord.profit;
-          }
+        const idx = client.records.findIndex(r => r.day === day);
+        if (idx !== -1) {
+          client.records[idx].profit = profit;
+        } else {
+          client.records.push({ day, profit });
+          client.records.sort((a, b) => a.day - b.day);
         }
 
         // Save to DB
@@ -578,17 +586,9 @@
           .maybeSingle();
 
         if (existing) {
-          await supabase.from('records').update({ profit, balance: newBalance }).eq('id', existing.id);
+          await supabase.from('records').update({ profit }).eq('id', existing.id);
         } else {
-          await supabase.from('records').insert({ client_id: clientId, day, profit, balance: newBalance });
-        }
-
-        const idx = client.records.findIndex(r => r.day === day);
-        if (idx !== -1) {
-          client.records[idx] = { day, profit, balance: newBalance };
-        } else {
-          client.records.push({ day, profit, balance: newBalance });
-          client.records.sort((a, b) => a.day - b.day);
+          await supabase.from('records').insert({ client_id: clientId, day, profit });
         }
 
         renderClientList();
@@ -605,18 +605,13 @@
         teamData.clients.forEach(client => {
           const isUnlocked = unlockedClients.has(client.id);
 
-          // 🔧 CORRECTED: Compute balance day-by-day using only profit (not stored balance)
           const recordMap = {};
-          client.records.forEach(r => {
-            recordMap[r.day] = r;
-          });
+          client.records.forEach(r => recordMap[r.day] = r);
 
           const dailyBalances = {};
-          let currentBalance = 10; // starting balance
+          let currentBalance = 10;
           for (let d = 1; d <= 30; d++) {
-            if (recordMap[d]) {
-              currentBalance += recordMap[d].profit;
-            }
+            if (recordMap[d]) currentBalance += recordMap[d].profit;
             dailyBalances[d] = currentBalance;
           }
 
@@ -626,7 +621,7 @@
           }).length;
 
           const totalProfit = client.records.reduce((sum, r) => sum + r.profit, 0);
-          const cardBalance = dailyBalances[30]; // final balance after 30 days
+          const cardBalance = dailyBalances[30];
 
           let tradeForm = `<div class="trade-form">
             <select class="day-select" data-client="${client.id}" ${isUnlocked ? '' : 'disabled'}>
@@ -669,10 +664,7 @@
               `;
             });
 
-            targetTable += `
-                </tbody>
-              </table>
-            `;
+            targetTable += `</tbody></table>`;
           }
 
           const card = document.createElement('div');
@@ -702,26 +694,29 @@
       function renderLeaderboard() {
         const lb = document.getElementById('leaderboard');
         lb.innerHTML = '';
-        const sorted = [...teamData.clients].sort((a, b) => {
-          return getAchieved(b) - getAchieved(a);
+
+        const clientsWithBalance = teamData.clients.map(client => {
+          const balance = computeFinalBalance(client.records);
+          const achieved = getAchieved(client);
+          return { ...client, finalBalance: balance, achieved };
         });
 
-        sorted.forEach((c, i) => {
-          const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '';
-          const recordMap = {};
-          c.records.forEach(r => recordMap[r.day] = r);
-
-          let balance = 10;
-          for (let d = 1; d <= 30; d++) {
-            if (recordMap[d]) balance += recordMap[d].profit;
+        // 🔥 Sort by balance (desc), then by achieved days (desc)
+        clientsWithBalance.sort((a, b) => {
+          if (b.finalBalance !== a.finalBalance) {
+            return b.finalBalance - a.finalBalance;
           }
+          return b.achieved - a.achieved;
+        });
 
+        clientsWithBalance.forEach((c, i) => {
+          const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '';
           lb.innerHTML += `
             <div class="leaderboard-item">
               <span class="rank">${medal}${i + 1}</span>
               <span class="leaderboard-name">${c.name}</span>
-              <span class="leaderboard-score">${getAchieved(c)} days</span>
-              <span class="leaderboard-balance">Balance: $${balance.toFixed(2)}</span>
+              <span class="leaderboard-score">${c.achieved} days</span>
+              <span class="leaderboard-balance">Balance: $${c.finalBalance.toFixed(2)}</span>
             </div>
           `;
         });
